@@ -1,0 +1,4 @@
+# Ignore local state/config
+klipkey.cfg
+*.zip
+logs/
