@@ -1,0 +1,40 @@
+#!/bin/bash
+# KlipKey Remote Update Utility V1.2
+
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+clear
+echo -e "${YELLOW}Checking for KlipKey Logic Updates...${NC}"
+
+# 1. Connectivity Check
+if ! ping -c 1 8.8.8.8 &>/dev/null; then
+    echo -e "${RED}Error: No internet connection. Updates require a network.${NC}"
+    read -p "Press Enter to return..."
+    exit 1
+fi
+
+# 2. Sync Logic
+cd ~/klipkey || exit
+echo -e "Synchronizing with GitHub..."
+
+# Fetch the latest metadata without merging
+git fetch origin main
+
+# FORCE the local scripts to match the remote 'main' branch
+# This overwrites any accidental local script edits but
+# DOES NOT touch files listed in .gitignore (like klipkey.cfg)
+git reset --hard origin/main
+
+# 3. Permissions & Re-Launch
+chmod +x ~/klipkey/*
+
+echo -e "${GREEN}Logic Update Successful!${NC}"
+echo -e "Your local 'klipkey.cfg' state was preserved."
+sleep 2
+
+# Hot-swap the current process back to the launcher
+exec ~/klipkey/launcher
+
