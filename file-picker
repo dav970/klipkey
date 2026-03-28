@@ -1,0 +1,21 @@
+#!/bin/bash
+CONFIG_DIR=~/printer_data/config
+FILES=($(ls $CONFIG_DIR/*.cfg $CONFIG_DIR/*.conf 2>/dev/null))
+
+while true; do
+    clear
+    echo "====================================="
+    echo "      EDIT CONFIG FILES (MICRO)"
+    echo "====================================="
+    for i in "${!FILES[@]}"; do
+        printf "  [%d] %s\n" "$((i+1))" "$(basename ${FILES[$i]})"
+    done
+    echo "====================================="
+    echo "  [ B ] Back to Main Menu"
+    echo "-------------------------------------"
+    read -p "Select # to Edit: " choice
+    if [[ "$choice" =~ ^[Bb]$ ]]; then exit 0; fi
+    if [[ "$choice" -gt 0 && "$choice" -le "${#FILES[@]}" ]]; then
+        micro "${FILES[$((choice-1))]}"
+    fi
+done

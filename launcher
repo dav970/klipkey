@@ -1,0 +1,69 @@
+#!/bin/bash
+# KlipKey Master Launcher V1.0
+
+source ~/klipkey/klipkey.cfg
+
+while true; do
+    clear
+    echo -e "\033[0;36m" # Cyan
+    cat <<-'EOF'
+
+
+888    d8P  888      8888888 8888888b.  888                        
+888   d8P   888        888   888   Y88b 888                        
+888  d8P    888        888   888    888 888                        
+888d88K     888        888   888   d88P 888  888  .d88b.  888  888 
+8888888b    888        888   8888888P"  888 .88P d8P  Y8b 888  888 
+888  Y88b   888        888   888        888888K  88888888 888  888 
+888   Y88b  888        888   888        888 "88b Y8b.     Y88b 888 
+888    Y88b 88888888 8888888 888        888  888  "Y8888   "Y88888 
+                                                               888 
+                                                          Y8b d88P 
+                                                           "Y88P"  
+
+EOF
+    echo -e "\033[0m" # Reset
+
+
+    # Live Stats
+    IP_ADDR=$(hostname -I | awk '{print $1}')
+    [ -z "$IP_ADDR" ] && IP_ADDR="No Connection"
+    DATA_FREE=$(df -h /mnt/klipdata 2>/dev/null | awk 'NR==2 {print $4}')
+    [ -z "$DATA_FREE" ] && DATA_FREE="DISCONNECTED"
+
+    echo "-------------------------------------"
+    echo "  IP ADDRESS : $IP_ADDR"
+    echo "  USB BRIDGE : $DATA_FREE"
+    echo "  TEST MODE  : $( [ "$test_mode" = "true" ] && echo -e "\033[1;33mACTIVE\033[0m" || echo "OFF" )"
+    echo "====================================="
+    echo "  [ H ] Hardware Discovery Scan"
+    echo "  [ R ] Fix Configuration (Missing MCUs, Broken Macros)"
+    echo "  [ G ] G-Code Safety Guard"
+    echo "  [ I ] Launch KIAUH (Install Crowsnest/Add-ons)"
+    echo "-------------------------------------"
+    echo "  [ C ] Checkpoint (Manual Save)"
+    echo "  [ L ] Load from Checkpoint"
+    echo "  [ E ] Edit Config Files (Micro)"
+    echo "  [ S ] Service Status (Toggles)"
+    echo "  [ T ] Toggle Test/Fake Mode"
+    echo "  [ X ] System (Power/Reset)"
+    echo "  [ ? ] Help / Information"
+    echo "  [ Q ] Quit to Console"
+    echo "====================================="
+
+    read -n 1 -s -p "Selection: " opt
+    case $opt in
+        [Hh]*) ~/klipkey/hw-discover ;;
+        [Rr]*) ~/klipkey/repair-engine ;;
+        [Gg]*) ~/klipkey/gcode-guard ;;
+        [Ii]*) ~/kiauh/kiauh.sh ;;
+        [Cc]*) ~/klipkey/checkpoint-engine --save ;;
+        [Ll]*) ~/klipkey/checkpoint-engine --restore ;;
+        [Ee]*) ~/klipkey/file-picker ;;
+        [Ss]*) ~/klipkey/service-monitor ;;
+        [Tt]*) ~/klipkey/toggle-test ;;
+        [Xx]*) ~/klipkey/sys-actions ;;
+        [\?]*) clear; cat ~/klipkey/help.txt; read -p "Press Enter..." ;;
+        [Qq]*) clear; exit 0 ;;
+    esac
+done

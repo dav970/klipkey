@@ -1,0 +1,104 @@
+#!/bin/bash
+# KlipKey G-Code Safety Guard
+# Validates hardware state before allowing a diagnostic print
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# Load KlipKey State
+[ -f ~/klipkey/klipkey.cfg ] && source ~/klipkey/klipkey.cfg || audit_hash="none"
+
+PRINTER_CFG="$HOME/printer_data/config/printer.cfg" [cite: 12]
+BLACKLIST="$HOME/printer_data/config/archive/broken_macros.list" [cite: 12]
+GCODE_DIR="$HOME/printer_data/gcodes"
+
+clear
+echo "====================================="
+echo "       G-CODE SAFETY CHECK"
+echo "====================================="
+
+# 1. LIVE HASH VERIFICATION
+# Calculate the hash of the current unified printer.cfg
+if [ ! -f "$PRINTER_CFG" ]; then
+    echo -e "${RED}[ERROR] printer.cfg not found!${NC}"
+    exit 1
+fi
+
+LIVE_HASH=$(sha256sum "$PRINTER_CFG" | awk '{print $1}' | head -c 16)
+
+# Check if the config has changed since the last Repair Engine run
+if [ "$LIVE_HASH" != "$audit_hash" ]; then
+    echo -e "${RED}[STALE] Configuration changed since last audit!${NC}"
+    echo "Live Hash:  $LIVE_HASH"
+    echo "Audit Hash: $audit_hash"
+    echo "-------------------------------------"
+    echo "Please run [R] Repair/Migrate before printing."
+    read -p "Press Enter to exit..."
+    exit 1
+fi
+
+# 2. BLACKLIST INTEGRITY CHECK
+if [ ! -f "$BLACKLIST" ]; then
+    echo -e "${GREEN}[PASS] No broken macros list found. Hardware is fully intact.${NC}"
+    read -p "Press Enter to return..."
+    exit 0
+fi
+
+LIST_HASH=$(head -n 1 "$BLACKLIST")
+if [ "$LIVE_HASH" != "$LIST_HASH" ]; then
+    echo -e "${RED}[ERROR] Macro blacklist hash mismatch!${NC}"
+    echo "The blacklist does not match the current printer.cfg."
+    read -p "Press Enter to exit..."
+    exit 1
+fi
+
+# 3. FILE SELECTION
+echo "Select a G-code file to scan:"
+FILES=($(ls "$GCODE_DIR"/*.gcode 2>/dev/null)) 
+
+if [ ${#FILES[@]} -eq 0 ]; then
+    echo -e "${YELLOW}No G-code files found in $GCODE_DIR${NC}"
+    read -p "Press Enter to return..."
+    exit 0
+fi
+
+for i in "${!FILES[@]}"; do
+    printf "  [%d] %s\n" "$((i+1))" "$(basename "${FILES[$i]}")"
+done
+echo "-------------------------------------"
+read -p "Select #: " choice
+
+if [[ ! "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt "${#FILES[@]}" ]; then
+    echo "Invalid selection."
+    exit 1
+fi
+
+TARGET="${FILES[$((choice-1))]}"
+echo -e "\nScanning $(basename "$TARGET")..."
+FOUND_CONFLICTS=0
+
+# 4. SCANNING LOOP
+# Skip the first line of the blacklist because it contains the hash
+while read -r MACRO; do
+    if [ -z "$MACRO" ]; then continue; fi
+    
+    if grep -iq "$MACRO" "$TARGET"; then
+        echo -e "${RED}[CRITICAL] File calls macro: '$MACRO'${NC}"
+        echo -e "           This macro depends on MISSING hardware."
+        FOUND_CONFLICTS=$((FOUND_CONFLICTS+1))
+    fi
+done < <(tail -n +2 "$BLACKLIST")
+
+# 5. FINAL REPORT
+echo "-------------------------------------"
+if [ $FOUND_CONFLICTS -eq 0 ]; then
+    echo -e "${GREEN}[SUCCESS] No hardware-conflicting macros found.${NC}"
+    echo "The file is safe for current hardware constraints."
+else
+    echo -e "${RED}[FAILED] Found $FOUND_CONFLICTS hardware conflict(s).${NC}"
+    echo "DO NOT PRINT THIS FILE until hardware is restored or macros are fixed."
+fi
+
+read -p "Press Enter to return to menu..."

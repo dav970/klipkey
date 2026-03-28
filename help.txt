@@ -1,0 +1,30 @@
+=====================================
+       KLIPKEY APPLIANCE HELP
+=====================================
+
+[H] HARDWARE DISCOVERY
+    Scans for USB serial IDs, CANbus nodes, and Webcams.
+    Use this to see if the OS can physically 'see' your boards.
+
+[R] FIX CONFIGURATION
+    The core engine. It flattens [include] files, matches 
+    missing MCU serials to new hardware, and neutralizes 
+    pins/macros for disconnected hardware to allow booting.
+
+[G] G-CODE SAFETY GUARD
+    Scans a G-code file before printing. It checks for 
+    macros that were disabled during the last [R] Fix 
+    to prevent hardware crashes.
+
+[C/L] CHECKPOINT SYSTEM
+    'C' creates a timestamped ZIP of your current working 
+    configs. 'L' lets you roll back to a previous state.
+
+[T] TEST/FAKE MODE
+    Toggles between real hardware and simulated 'FAKE' 
+    devices in ~/.spoof-mcu for configuration testing.
+
+[K/I] KIAUH
+    Launches the Klipper Installation And Update Helper.
+    Use this for installing Crowsnest or Obico.
+=====================================

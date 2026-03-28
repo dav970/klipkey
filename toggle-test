@@ -1,0 +1,14 @@
+#!/bin/bash
+# KlipKey Test Mode Toggle
+CFG=~/klipkey/klipkey.cfg
+source $CFG
+
+if [ "$test_mode" = "true" ]; then
+    sed -i "s/^test_mode=.*/test_mode=false/" $CFG
+    echo -e "\033[0;32mTest Mode DISABLED. Using real USB hardware.\033[0m"
+else
+    sed -i "s/^test_mode=.*/test_mode=true/" $CFG
+    echo -e "\033[1;33mTest Mode ENABLED. Using ~/.spoof-mcu (FAKE devices).\033[0m"
+    mkdir -p ~/.spoof-mcu
+fi
+sleep 1

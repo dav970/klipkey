@@ -1,0 +1,42 @@
+#!/bin/bash
+# KlipKey Global Factory Reset - Runtime Phase
+
+RED='\033[0;32m' # Use RED for danger
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+clear
+echo -e "${RED}!!! WARNING: TOTAL FACTORY RESET !!!${NC}"
+echo "This will wipe all configs, archives, and system changes."
+read -p "Type 'RESET' to confirm: " confirm
+
+if [ "$confirm" != "RESET" ]; then
+    echo "Reset aborted."
+    exit 0
+fi
+
+# --- 1. Reseed exFAT Bridge (Immediate) ---
+echo -e "${YELLOW}Reseeding exFAT Bridge...${NC}"
+BRIDGE_PATH="/mnt/klipdata"
+# Clear everything except the system hidden files
+rm -rf ${BRIDGE_PATH:?}/* # Re-populate from the internal Golden Template
+cp -r ~/printer_data_template/* "$BRIDGE_PATH/"
+# Re-init the config state
+cat <<'EOF' > ~/klipkey/klipkey.cfg
+test_mode=false
+audit_hash=none
+EOF
+
+# --- 2. Arm Persistence Wipe (Next Boot) ---
+echo -e "${YELLOW}Arming Persistence Reset Flag...${NC}"
+# We place this on the EFI or Boot partition which is usually mounted read-only 
+# or is a separate FAT32 partition that survives the persistence wipe.
+sudo mount -o remount,rw /boot/efi 2>/dev/null
+sudo touch /boot/efi/KLIPKEY_WIPE_FLAG
+sudo mount -o remount,ro /boot/efi 2>/dev/null
+
+echo -e "${RED}Bridge Reset. System will wipe OS changes on next boot.${NC}"
+read -p "Press [R] to Reboot now or any key to return: " reboot_choice
+if [[ "$reboot_choice" =~ ^[Rr]$ ]]; then
+    sudo reboot
+fi

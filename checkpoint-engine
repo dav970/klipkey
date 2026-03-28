@@ -1,0 +1,64 @@
+#!/bin/bash
+# KlipKey Checkpoint & Restore Utility
+
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+CONFIG_DIR="$HOME/printer_data/config"
+ARCHIVE_DIR="$CONFIG_DIR/archive"
+TIMESTAMP=$(date +%Y%m%d_%H%M)
+
+mkdir -p "$ARCHIVE_DIR"
+
+case $1 in
+    --save)
+        echo -e "${CYAN}Creating Manual Checkpoint...${NC}"
+        # Grab main config and all includes
+        mapfile -t INCLUDES < <(grep -RoP '(?<=\[include ).*(?=\])' "$CONFIG_DIR/printer.cfg" | sed "s|^|$CONFIG_DIR/|")
+        zip -j "$ARCHIVE_DIR/MANUAL_CHECKPOINT_$TIMESTAMP.zip" "$CONFIG_DIR/printer.cfg" "${INCLUDES[@]}" > /dev/null
+        echo -e "${GREEN}Checkpoint Saved: MANUAL_CHECKPOINT_$TIMESTAMP.zip${NC}"
+        ;;
+
+    --restore)
+        echo -e "${YELLOW}=====================================${NC}"
+        echo -e "       RESTORE FROM CHECKPOINT"
+        echo -e "${YELLOW}=====================================${NC}"
+        
+        # List all ZIPs in the archive folder
+        mapfile -t ZIPS < <(ls "$ARCHIVE_DIR"/*.zip 2>/dev/null)
+        
+        if [ ${#ZIPS[@]} -eq 0 ]; then
+            echo -e "${RED}No archives found in $ARCHIVE_DIR${NC}"
+            exit 1
+        fi
+
+        for i in "${!ZIPS[@]}"; do
+            printf "  [%d] %s\n" "$((i+1))" "$(basename "${ZIPS[$i]}")"
+        done
+        echo -e "-------------------------------------"
+        read -p "Select archive to RESTORE: " choice
+        
+        SELECTED_ZIP="${ZIPS[$((choice-1))]}"
+        
+        if [ -f "$SELECTED_ZIP" ]; then
+            echo -e "${RED}WARNING: This will overwrite your current printer.cfg and includes!${NC}"
+            read -p "Are you sure? [y/N]: " confirm
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                # Safety backup of the mess we are about to overwrite
+                cp "$CONFIG_DIR/printer.cfg" "$CONFIG_DIR/printer.cfg.pre_restore"
+                
+                # Extract zip directly into config dir
+                unzip -o "$SELECTED_ZIP" -d "$CONFIG_DIR/" > /dev/null
+                echo -e "${GREEN}Restore Complete! Original moved to printer.cfg.pre_restore${NC}"
+                
+                # Since config changed, we must invalidate the G-Code Guard hash
+                sed -i "s/^audit_hash=.*/audit_hash=RESTORED_STALE/" ~/klipkey/klipkey.cfg
+                echo "G-Code Guard reset. Please run Repair Engine to re-verify."
+            fi
+        fi
+        ;;
+esac
+read -p "Press Enter..."

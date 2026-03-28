@@ -1,0 +1,58 @@
+#!/bin/bash
+# KlipKey Hardware Discovery Utility
+
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+while true; do
+    clear
+    echo -e "${CYAN}=====================================${NC}"
+    echo -e "${CYAN}     ATTACHED HARDWARE SCANNER       ${NC}"
+    echo -e "${CYAN}=====================================${NC}"
+
+    # 1. SCAN USB/SERIAL DEVICES
+    echo -e "${YELLOW}[ USB / SERIAL DEVICES ]${NC}"
+    if [ -d /dev/serial/by-id ]; then
+        ls /dev/serial/by-id/* 2>/dev/null | sed 's|^.*/|  > |'
+    else
+        echo -e "  ${RED}No USB Serial devices found.${NC}"
+    fi
+    echo ""
+
+    # 2. SCAN CANBUS INTERFACES
+    echo -e "${YELLOW}[ CANBUS INTERFACES ]${NC}"
+    if ip link show | grep -q "can"; then
+        ip -brief link show type can | awk '{print "  > " $1 " (" $2 ")"}'
+        echo -e "  ${CYAN}Active Nodes:${NC}"
+        timeout 0.5 ~/klippy-env/bin/python ~/klipper/scripts/canbus_query.py can0 2>/dev/null | grep -v "Found" | sed 's|^|    |' || echo "    (No nodes responding)"
+    else
+        echo -e "  ${RED}No CAN interfaces active.${NC}"
+    fi
+    echo ""
+
+    # 3. SCAN WEBCAMS (V4L2)
+    echo -e "${YELLOW}[ WEBCAMS / VIDEO ]${NC}"
+    if [ -d /dev/v4l/by-id ]; then
+        ls /dev/v4l/by-id/* 2>/dev/null | sed 's|^.*/|  > |'
+        echo -e "\n${YELLOW}NOTE:${NC} KLIPkey does not ship with Crowsnest installed."
+        echo "If desired, use KIAUH to install Crowsnest then"
+        echo "configure camera(s) manually."
+    else
+        echo -e "  ${RED}No cameras detected.${NC}"
+    fi
+    echo ""
+
+    echo -e "${CYAN}=====================================${NC}"
+    echo -e "  [ R ] Rescan Hardware"
+    echo -e "  [ B ] Back to Main Menu"
+    echo -e "${CYAN}=====================================${NC}"
+    
+    read -n 1 -s -p "Selection: " choice
+    case $choice in
+        [Rr]) continue ;;
+        [Bb]) exit 0 ;;
+    esac
+done

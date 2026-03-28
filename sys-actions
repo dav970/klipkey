@@ -1,0 +1,15 @@
+#!/bin/bash
+clear
+echo "====================================="
+echo "          SYSTEM ACTIONS"
+echo "====================================="
+echo "  [ S ] Shutdown Appliance"
+echo "  [ R ] Reboot Appliance"
+echo "  [ B ] Back"
+echo "====================================="
+read -n 1 -s -p "Selection: " choice
+case $choice in
+    [Ss]) echo "Shutting down..."; sudo shutdown -h now ;;
+    [Rr]) echo "Rebooting..."; sudo reboot ;;
+    [Bb]) exit 0 ;;
+esac
