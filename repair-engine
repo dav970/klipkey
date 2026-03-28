@@ -1,6 +1,48 @@
 #!/bin/bash
-# KlipKey Klipper Migration & Repair Engine
-# Logic: Backup -> Flatten -> Discover -> Match -> Audit -> Commit
+# KlipKey Repair Engine - Recursive Flattener V1.2
+
+WORKING_CFG="/tmp/printer_flat.cfg"
+> "$WORKING_CFG" # Clear existing
+
+# The Recursive Function
+flatten_config() {
+    local current_file="$1"
+    local current_dir=$(dirname "$(readlink -f "$current_file")")
+
+    echo "## --- START OF INCLUDE: $current_file --- ##" >> "$WORKING_CFG"
+
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Detect [include ...]
+        if [[ "$line" =~ ^\[include\ (.*)\] ]]; then
+            include_path="${BASH_REMATCH[1]}"
+            
+            # Resolve relative paths to Absolute
+            if [[ "$include_path" != /* ]]; then
+                include_path="$current_dir/$include_path"
+            fi
+            
+            # Recurse if file exists, otherwise comment out error
+            if [ -f "$include_path" ]; then
+                flatten_config "$include_path"
+            else
+                echo "# ERROR: Could not find $include_path" >> "$WORKING_CFG"
+            fi
+        else
+            # Pass regular lines through
+            echo "$line" >> "$WORKING_CFG"
+        fi
+    done < "$current_file"
+    
+    echo "## --- END OF INCLUDE: $current_file --- ##" >> "$WORKING_CFG"
+}
+
+# Start the process with the main config on the USB Bridge
+if [ -f "/mnt/klipdata/config/printer.cfg" ]; then
+    flatten_config "/mnt/klipdata/config/printer.cfg"
+else
+    echo "Error: No printer.cfg found on Bridge!"
+    exit 1
+fi
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
