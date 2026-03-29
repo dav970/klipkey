@@ -56,7 +56,10 @@ EOF
         [Hh]*) ~/klipkey/hw-discover ;;
         [Rr]*) ~/klipkey/repair-engine ;;
         [Gg]*) ~/klipkey/gcode-guard ;;
-        [Ii]*) ~/kiauh/kiauh.sh ;;
+        [Ii]*) # Set the trap
+               sed -i 's/^pending_ks_patch=false/pending_ks_patch=true/' ~/klipkey/klipkey.cfg
+               # Launch KIAUH
+               ~/kiauh/kiauh.sh ;;
         [Cc]*) ~/klipkey/checkpoint-engine --save ;;
         [Ll]*) ~/klipkey/checkpoint-engine --restore ;;
         [Ee]*) ~/klipkey/file-picker ;;

@@ -1,21 +1,55 @@
 #!/bin/bash
-CONFIG_DIR=~/printer_data/config
-FILES=($(ls $CONFIG_DIR/*.cfg $CONFIG_DIR/*.conf 2>/dev/null))
+# KlipKey Space-Safe File Picker V1.2
 
-while true; do
-    clear
-    echo "====================================="
-    echo "      EDIT CONFIG FILES (MICRO)"
-    echo "====================================="
-    for i in "${!FILES[@]}"; do
-        printf "  [%d] %s\n" "$((i+1))" "$(basename ${FILES[$i]})"
-    done
-    echo "====================================="
-    echo "  [ B ] Back to Main Menu"
-    echo "-------------------------------------"
-    read -p "Select # to Edit: " choice
-    if [[ "$choice" =~ ^[Bb]$ ]]; then exit 0; fi
-    if [[ "$choice" -gt 0 && "$choice" -le "${#FILES[@]}" ]]; then
-        micro "${FILES[$((choice-1))]}"
-    fi
+source ~/klipkey/klipkey.cfg
+
+# --- CONFIGURATION ---
+GCODE_DIR="/mnt/klipdata/gcodes"
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+clear
+echo -e "${CYAN}--- KLIPkey G-Code Browser ---${NC}"
+echo -e "Location: $GCODE_DIR\n"
+
+# 1. Space-Safe File Discovery
+# mapfile reads the output of 'ls' line-by-line into an array
+mapfile -t FILES < <(ls "$GCODE_DIR"/*.gcode 2>/dev/null)
+
+# 2. Check if directory is empty
+if [ ${#FILES[@]} -eq 0 ]; then
+    echo -e "${RED}[!] No .gcode files found on USB Bridge.${NC}"
+    read -p "Press Enter to return..."
+    exit 0
+fi
+
+# 3. Display Menu
+for i in "${!FILES[@]}"; do
+    # Display index + 1 for human readability, and strip path from filename
+    FILENAME=$(basename "${FILES[$i]}")
+    printf " [%2d] %s\n" "$((i+1))" "$FILENAME"
 done
+
+echo -e "\n [ b ] Back to Menu"
+echo -e "------------------------------------------------"
+read -p " Select a file to inspect: " choice
+
+# 4. Handle Selection
+if [[ "$choice" == "b" ]]; then
+    exit 0
+fi
+
+# Adjust for 0-based array index
+INDEX=$((choice - 1))
+
+if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$INDEX" -ge 0 ] && [ "$INDEX" -lt "${#FILES[@]}" ]; then
+    SELECTED_FILE="${FILES[$INDEX]}"
+    
+    # Pass the selected file to the G-Code Guard for the Safety Audit
+    ~/klipkey/gcode-guard "$SELECTED_FILE"
+else
+    echo -e "${RED}Invalid selection.${NC}"
+    sleep 1
+fi
