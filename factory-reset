@@ -1,7 +1,7 @@
 #!/bin/bash
 # KlipKey Global Factory Reset - Runtime Phase
 
-RED='\033[0;32m' # Use RED for danger
+RED='\033[0;31m' # Use RED for danger
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
@@ -18,22 +18,49 @@ fi
 # --- 1. Reseed exFAT Bridge (Immediate) ---
 echo -e "${YELLOW}Reseeding exFAT Bridge...${NC}"
 BRIDGE_PATH="/mnt/klipdata"
-# Clear everything except the system hidden files
-rm -rf ${BRIDGE_PATH:?}/* # Re-populate from the internal Golden Template
-cp -r ~/printer_data_template/* "$BRIDGE_PATH/"
+
+# Safety: verify bridge path exists and is not root
+if [ ! -d "$BRIDGE_PATH" ]; then
+    echo -e "${RED}ERROR:${NC} Bridge path $BRIDGE_PATH not found. Aborting."
+    exit 1
+fi
+
+if [ "$BRIDGE_PATH" = "/" ]; then
+    echo -e "${RED}ERROR: Refusing to operate on /${NC}"
+    exit 1
+fi
+
+TEMPLATE_DIR="$HOME/printer_data_template"
+shopt -s nullglob
+if [ -d "$TEMPLATE_DIR" ]; then
+    # Remove user-writable files inside bridge (keep parent dir)
+    rm -rf "${BRIDGE_PATH:?}/*"
+    files=('$TEMPLATE_DIR'/*)
+    if [ ${#files[@]} -gt 0 ]; then
+        cp -r "$TEMPLATE_DIR"/* "$BRIDGE_PATH/"
+    fi
+else
+    echo -e "${YELLOW}Warning:${NC} Template directory $TEMPLATE_DIR not found; bridge cleared only."
+    rm -rf "${BRIDGE_PATH:?}/*"
+fi
+shopt -u nullglob
+
 # Re-init the config state
-cat <<'EOF' > ~/klipkey/klipkey.cfg
+mkdir -p "$HOME/klipkey"
+cat <<'EOF' > "$HOME/klipkey/klipkey.cfg"
 test_mode=false
 audit_hash=none
 EOF
 
 # --- 2. Arm Persistence Wipe (Next Boot) ---
 echo -e "${YELLOW}Arming Persistence Reset Flag...${NC}"
-# We place this on the EFI or Boot partition which is usually mounted read-only 
-# or is a separate FAT32 partition that survives the persistence wipe.
-sudo mount -o remount,rw /boot/efi 2>/dev/null
-sudo touch /boot/efi/KLIPKEY_WIPE_FLAG
-sudo mount -o remount,ro /boot/efi 2>/dev/null
+if sudo mount -o remount,rw /boot/efi 2>/dev/null; then
+    sudo touch /boot/efi/KLIPKEY_WIPE_FLAG
+    sudo mount -o remount,ro /boot/efi 2>/dev/null || true
+else
+    echo -e "${YELLOW}Warning:${NC} Could not remount /boot/efi read-write; attempting to write flag directly."
+    sudo touch /boot/efi/KLIPKEY_WIPE_FLAG 2>/dev/null || echo -e "${RED}Failed to write wipe flag.${NC}"
+fi
 
 echo -e "${RED}Bridge Reset. System will wipe OS changes on next boot.${NC}"
 read -p "Press [R] to Reboot now or any key to return: " reboot_choice
