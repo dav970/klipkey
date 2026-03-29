@@ -1,40 +1,42 @@
 #!/bin/bash
-# KlipKey Remote Update Utility V1.2
+# KLIPkey Update & Sync Logic V1.2
 
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-clear
-echo -e "${YELLOW}Checking for KlipKey Logic Updates...${NC}"
-
-# 1. Connectivity Check
-if ! ping -c 1 8.8.8.8 &>/dev/null; then
-    echo -e "${RED}Error: No internet connection. Updates require a network.${NC}"
-    read -p "Press Enter to return..."
-    exit 1
+# 1. Initialize Configuration (The Template Logic)
+# ------------------------------------------------
+if [ ! -f ~/klipkey/klipkey.cfg ]; then
+    echo "Creating klipkey.cfg from template..."
+    cp ~/klipkey/klipkey.cfg.template ~/klipkey/klipkey.cfg
 fi
 
-# 2. Sync Logic
-cd ~/klipkey || exit
-echo -e "Synchronizing with GitHub..."
+source ~/klipkey/klipkey.cfg
 
-# Fetch the latest metadata without merging
-git fetch origin main
+# 2. System Service Installation
+# ------------------------------------------------
+# Ensure the patch service is installed in the system root
+if [ -f "~/klipkey/patches/klipkey-cursor.service" ]; then
+    sudo cp ~/klipkey/patches/klipkey-cursor.service /etc/systemd/system/
+    sudo systemctl daemon-reload
+    sudo systemctl enable klipkey-cursor.service
+fi
 
-# FORCE the local scripts to match the remote 'main' branch
-# This overwrites any accidental local script edits but
-# DOES NOT touch files listed in .gitignore (like klipkey.cfg)
-git reset --hard origin/main
+# 3. KlipperScreen UI Patching (Hard Override)
+# ------------------------------------------------
+# This forces your custom shutdown panel into the active KS directory
+if [ -d "~/KlipperScreen" ] && [ -f "~/klipkey/patches/shutdown.py" ]; then
+    # Backup original only if a backup doesn't already exist
+    if [ ! -f "~/KlipperScreen/panels/shutdown.py.bak" ]; then
+        cp ~/KlipperScreen/panels/shutdown.py ~/KlipperScreen/panels/shutdown.py.bak
+    fi
+    cp ~/klipkey/patches/shutdown.py ~/KlipperScreen/panels/shutdown.py
+fi
 
-# 3. Permissions & Re-Launch
-chmod +x ~/klipkey/*
+# 4. Permissions Enforcement
+# ------------------------------------------------
+# Avoid 'chmod +x *'. Only target actual scripts.
+chmod +x ~/klipkey/launcher
+chmod +x ~/klipkey/repair-engine
+chmod +x ~/klipkey/gcode-guard
+chmod +x ~/klipkey/file-picker
+chmod +x ~/klipkey/scripts/*.sh
 
-echo -e "${GREEN}Logic Update Successful!${NC}"
-echo -e "Your local 'klipkey.cfg' state was preserved."
-sleep 2
-
-# Hot-swap the current process back to the launcher
-exec ~/klipkey/launcher
-
+echo -e "\033[0;32mKLIPkey Update Complete.\033[0m"
