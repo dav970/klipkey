@@ -3,18 +3,19 @@
 
 # 1. Initialize Configuration (The Template Logic)
 # ------------------------------------------------
-if [ ! -f ~/klipkey/klipkey.cfg ]; then
+if [ ! -f "$HOME/klipkey/klipkey.cfg" ]; then
     echo "Creating klipkey.cfg from template..."
-    cp ~/klipkey/klipkey.cfg.template ~/klipkey/klipkey.cfg
+    cp "$HOME/klipkey/klipkey.cfg.template" "$HOME/klipkey/klipkey.cfg"
 fi
 
-source ~/klipkey/klipkey.cfg
+# shellcheck disable=SC1090
+source "$HOME/klipkey/klipkey.cfg"
 
 # 2. System Service Installation
 # ------------------------------------------------
 # Ensure the patch service is installed in the system root
-if [ -f "~/klipkey/patches/klipkey-cursor.service" ]; then
-    sudo cp ~/klipkey/patches/klipkey-cursor.service /etc/systemd/system/
+if [ -f "$HOME/klipkey/patches/klipkey-cursor.service" ]; then
+    sudo cp "$HOME/klipkey/patches/klipkey-cursor.service" /etc/systemd/system/
     sudo systemctl daemon-reload
     sudo systemctl enable klipkey-cursor.service
 fi
@@ -22,21 +23,22 @@ fi
 # 3. KlipperScreen UI Patching (Hard Override)
 # ------------------------------------------------
 # This forces your custom shutdown panel into the active KS directory
-if [ -d "~/KlipperScreen" ] && [ -f "~/klipkey/patches/shutdown.py" ]; then
-    # Backup original only if a backup doesn't already exist
-    if [ ! -f "~/KlipperScreen/panels/shutdown.py.bak" ]; then
-        cp ~/KlipperScreen/panels/shutdown.py ~/KlipperScreen/panels/shutdown.py.bak
+if [ -d "$HOME/KlipperScreen" ] && [ -f "$HOME/klipkey/patches/shutdown.py" ]; then
+    if [ ! -f "$HOME/KlipperScreen/panels/shutdown.py.bak" ] && [ -f "$HOME/KlipperScreen/panels/shutdown.py" ]; then
+        cp "$HOME/KlipperScreen/panels/shutdown.py" "$HOME/KlipperScreen/panels/shutdown.py.bak"
     fi
-    cp ~/klipkey/patches/shutdown.py ~/KlipperScreen/panels/shutdown.py
+    cp "$HOME/klipkey/patches/shutdown.py" "$HOME/KlipperScreen/panels/shutdown.py"
 fi
 
 # 4. Permissions Enforcement
 # ------------------------------------------------
 # Avoid 'chmod +x *'. Only target actual scripts.
-chmod +x ~/klipkey/launcher
-chmod +x ~/klipkey/repair-engine
-chmod +x ~/klipkey/gcode-guard
-chmod +x ~/klipkey/file-picker
-chmod +x ~/klipkey/scripts/*.sh
+shopt -s nullglob
+for f in "$HOME/klipkey/"launcher "$HOME/klipkey/repair-engine" "$HOME/klipkey/gcode-guard" "$HOME/klipkey/file-picker" "$HOME/klipkey/scripts/"*.sh; do
+    if [ -f "$f" ]; then
+        chmod +x "$f"
+    fi
+done
+shopt -u nullglob
 
 echo -e "\033[0;32mKLIPkey Update Complete.\033[0m"
