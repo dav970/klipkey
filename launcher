@@ -45,7 +45,6 @@ EOF
     echo "  [ L ] Load from Checkpoint"
     echo "  [ E ] Edit Config Files (Micro)"
     echo "  [ S ] Service Status (Toggles)"
-    echo "  [ T ] Toggle Test/Fake Mode"
     echo "  [ X ] System (Power/Reset)"
     echo "  [ ? ] Help / Information"
     echo "  [ Q ] Quit to Console"
@@ -64,7 +63,6 @@ EOF
         [Ll]*) ~/klipkey/checkpoint-engine --restore ;;
         [Ee]*) ~/klipkey/file-picker ;;
         [Ss]*) ~/klipkey/service-monitor ;;
-        [Tt]*) ~/klipkey/toggle-test ;;
         [Xx]*) ~/klipkey/sys-actions ;;
         [\?]*) clear; cat ~/klipkey/help.txt; read -p "Press Enter..." ;;
         [Qq]*) clear; exit 0 ;;
