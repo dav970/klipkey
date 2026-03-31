@@ -1,44 +1,38 @@
 #!/bin/bash
-# KLIPkey Update & Sync Logic V1.2
+# KLIPkey Portable Update & Installer Logic
 
-# 1. Initialize Configuration (The Template Logic)
-# ------------------------------------------------
-if [ ! -f "$HOME/klipkey/klipkey.cfg" ]; then
+# 1. Detect Environment
+USER_HOME=$HOME
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+echo "Initializing KLIPkey for user: $USER"
+echo "Repo detected at: $REPO_DIR"
+
+# 2. Configuration Initialization
+if [ ! -f "$REPO_DIR/klipkey.cfg" ]; then
     echo "Creating klipkey.cfg from template..."
-    cp "$HOME/klipkey/klipkey.cfg.template" "$HOME/klipkey/klipkey.cfg"
+    cp "$REPO_DIR/klipkey.cfg.template" "$REPO_DIR/klipkey.cfg"
 fi
 
-# shellcheck disable=SC1090
-source "$HOME/klipkey/klipkey.cfg"
+# 3. Path Synchronization (The Portability Fix)
+# This swaps any hardcoded /home/user/ with the actual current home path
+echo "Synchronizing internal paths..."
+find "$REPO_DIR/patches" -type f -exec sed -i "s|/home/user/|$USER_HOME/|g" {} +
+find "$REPO_DIR" -maxdepth 1 -type f -exec sed -i "s|/home/user/|$USER_HOME/|g" {} +
 
-# 2. System Service Installation
-# ------------------------------------------------
-# Ensure the patch service is installed in the system root
-if [ -f "$HOME/klipkey/patches/klipkey-cursor.service" ]; then
-    sudo cp "$HOME/klipkey/patches/klipkey-cursor.service" /etc/systemd/system/
+# 4. Systemd Service Installation
+if [ -f "$REPO_DIR/patches/klipkey-cursor.service" ]; then
+    sudo cp "$REPO_DIR/patches/klipkey-cursor.service" /etc/systemd/system/
     sudo systemctl daemon-reload
     sudo systemctl enable klipkey-cursor.service
+    echo "Systemd service updated."
 fi
 
-# 3. KlipperScreen UI Patching (Hard Override)
-# ------------------------------------------------
-# This forces your custom shutdown panel into the active KS directory
-if [ -d "$HOME/KlipperScreen" ] && [ -f "$HOME/klipkey/patches/shutdown.py" ]; then
-    if [ ! -f "$HOME/KlipperScreen/panels/shutdown.py.bak" ] && [ -f "$HOME/KlipperScreen/panels/shutdown.py" ]; then
-        cp "$HOME/KlipperScreen/panels/shutdown.py" "$HOME/KlipperScreen/panels/shutdown.py.bak"
-    fi
-    cp "$HOME/klipkey/patches/shutdown.py" "$HOME/KlipperScreen/panels/shutdown.py"
-fi
+# 5. Permissions Enforcement
+chmod +x "$REPO_DIR/launcher"
+chmod +x "$REPO_DIR/repair-engine"
+chmod +x "$REPO_DIR/gcode-guard"
+chmod +x "$REPO_DIR/file-picker"
+chmod +x "$REPO_DIR/patches/"*.sh
 
-# 4. Permissions Enforcement
-# ------------------------------------------------
-# Avoid 'chmod +x *'. Only target actual scripts.
-shopt -s nullglob
-for f in "$HOME/klipkey/"launcher "$HOME/klipkey/repair-engine" "$HOME/klipkey/gcode-guard" "$HOME/klipkey/file-picker" "$HOME/klipkey/scripts/"*.sh; do
-    if [ -f "$f" ]; then
-        chmod +x "$f"
-    fi
-done
-shopt -u nullglob
-
-echo -e "\033[0;32mKLIPkey Update Complete.\033[0m"
+echo -e "\033[0;32mKLIPkey Update & Portability Fix Complete.\033[0m"

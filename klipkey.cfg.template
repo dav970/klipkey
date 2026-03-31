@@ -2,4 +2,4 @@
 test_mode=true
 audit_hash=
 # Set to 'true' by KIAUH wrapper or install scripts to trigger boot-patching
-pending_ks_patch=false
+pending_ks_patch=true
