@@ -1,5 +1,5 @@
 # KlipKey Configuration State
-test_mode=true
+test_mode=false
 audit_hash=
 # Set to 'true' by KIAUH wrapper or install scripts to trigger boot-patching
 pending_ks_patch=true
