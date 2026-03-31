@@ -1,58 +1,36 @@
 #!/bin/bash
-# KlipKey Hardware Discovery Utility
+# KLIPkey Hardware Discovery Tool
+# Dynamically detects CAN interfaces and queries nodes
 
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+echo "--- KLIPkey Hardware Discovery ---"
 
-while true; do
-    clear
-    echo -e "${CYAN}=====================================${NC}"
-    echo -e "${CYAN}     ATTACHED HARDWARE SCANNER       ${NC}"
-    echo -e "${CYAN}=====================================${NC}"
+# Find all active CAN interfaces
+INTERFACES=$(ip -brief link show | awk '/^can/ || /^vcan/ {print $1}')
 
-    # 1. SCAN USB/SERIAL DEVICES
-    echo -e "${YELLOW}[ USB / SERIAL DEVICES ]${NC}"
-    if [ -d /dev/serial/by-id ]; then
-        ls /dev/serial/by-id/* 2>/dev/null | sed 's|^.*/|  > |'
-    else
-        echo -e "  ${RED}No USB Serial devices found.${NC}"
-    fi
-    echo ""
+if [[ -z "$INTERFACES" ]]; then
+    echo "Error: No CAN interfaces (can0, can1, etc.) detected."
+    echo "Check your wiring and UDEV rules."
+    exit 1
+fi
 
-    # 2. SCAN CANBUS INTERFACES
-    echo -e "${YELLOW}[ CANBUS INTERFACES ]${NC}"
-    if ip link show | grep -q "can"; then
-        ip -brief link show type can | awk '{print "  > " $1 " (" $2 ")"}'
-        echo -e "  ${CYAN}Active Nodes:${NC}"
-        timeout 0.5 ~/klippy-env/bin/python ~/klipper/scripts/canbus_query.py can0 2>/dev/null | grep -v "Found" | sed 's|^|    |' || echo "    (No nodes responding)"
-    else
-        echo -e "  ${RED}No CAN interfaces active.${NC}"
-    fi
-    echo ""
-
-    # 3. SCAN WEBCAMS (V4L2)
-    echo -e "${YELLOW}[ WEBCAMS / VIDEO ]${NC}"
-    if [ -d /dev/v4l/by-id ]; then
-        ls /dev/v4l/by-id/* 2>/dev/null | sed 's|^.*/|  > |'
-        echo -e "\n${YELLOW}NOTE:${NC} KLIPkey does not ship with Crowsnest installed."
-        echo "If desired, use KIAUH to install Crowsnest then"
-        echo "configure camera(s) manually."
-    else
-        echo -e "  ${RED}No cameras detected.${NC}"
-    fi
-    echo ""
-
-    echo -e "${CYAN}=====================================${NC}"
-    echo -e "  [ R ] Rescan Hardware"
-    echo -e "  [ B ] Back to Main Menu"
-    echo -e "${CYAN}=====================================${NC}"
+for IFACE in $INTERFACES; do
+    echo "Scanning interface: $IFACE..."
     
-    read -n 1 -s -p "Selection: " choice
-    case $choice in
-        [Rr]) continue ;;
-        [Bb]) exit 0 ;;
-    esac
+    # Check if the interface is UP
+    if ! ip link show "$IFACE" | grep -q "UP"; then
+        echo "  [!] Interface $IFACE is DOWN. Skipping..."
+        continue
+    fi
+
+    # Query Flashutil/Klipper nodes
+    NODES=$(~/klippy-env/bin/python ~/klipper/scripts/canbus_query.py "$IFACE" 2>/dev/null)
+    
+    if [[ -z "$NODES" || "$NODES" == *"Total available canbus nodes: 0"* ]]; then
+        echo "  (No nodes responding on $IFACE)"
+    else
+        echo "  Found Nodes:"
+        echo "$NODES" | grep "canbus_uuid" | sed 's/^/  - /'
+    fi
 done
+
+echo "----------------------------------"
